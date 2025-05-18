@@ -277,9 +277,9 @@ void fx_cylinder_run(void) {
 
         UPDATE_KEYS();
 
-        if (KEY_TICKED(J_START)) {
-            break;
-        }
+        // if (KEY_TICKED(J_START)) {
+        //     break;
+        // }
 
         uint8_t y_center = (SPR_CYLINDER_Y_CENTER - bounce_scy) + DEVICE_SPRITE_PX_OFFSET_Y;
         if (sys_time & 0x01u) {
