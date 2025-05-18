@@ -18,6 +18,15 @@
 
 // #define LOOP_FOREVER
 
+#define CYLINDER_HEIGHT      (72u)
+#define CYLINDER_HEIGHT_HALF (72u / 2)
+#define CYLINDER_START        ((DEVICE_SCREEN_PX_HEIGHT - CYLINDER_HEIGHT) / 2)
+#define SPR_CYLINDER_Y_CENTER  (CYLINDER_START + CYLINDER_HEIGHT_HALF)
+
+#define SPR_NUM   16u
+#define SPR_SCALE_X (DEVICE_SCREEN_PX_WIDTH / SPR_NUM)
+
+
 static void fx_cylinder_isr_vbl(void);
 static void fx_cylinder_isr_lcd(void) __interrupt __naked;
 
@@ -26,13 +35,15 @@ static void fx_cylinder_isr_lcd(void) __interrupt __naked;
 uint8_t __at(0xC800) scanline_scy_offsets[256];
 uint8_t __at(0xC900) scanline_bg_pals[256];
 
-uint8_t start_scx, start_scy, counter, bounce_scy, cylinder_start_bounce_scy;
-
+SFR __at(0xFF93) start_scx;
+SFR __at(0xFF94) start_scy;
+SFR __at(0xFF95) counter;
+SFR __at(0xFF96) bounce_scy;
+SFR __at(0xFF97) cylinder_start_bounce_scy;
+// uint8_t start_scx, start_scy, counter, bounce_scy, cylinder_start_bounce_scy;
 uint8_t cur_scroll_char = 0;
-static bool demo_running;
 
-#define SPR_NUM   16u
-#define SPR_SCALE_X (DEVICE_SCREEN_PX_WIDTH / SPR_NUM)
+static bool demo_running;
 
 uint8_t spr_x[SPR_NUM];
 
@@ -61,14 +72,12 @@ const int8_t palette_ly_table[144] = {
         // DRK-GRY, BLK, GRY, WHT
         // 0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xBE,0xBE,0xBE,0xBE,0xBE,0xBE,0xBE,0x6E,0x6E,0x6E,0x6E,0x6E,0x6E,0x6E,0x6E,0x6E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x6E,0x6E,0x6E,0x6E,0x6E,0x6E,0x6E,0x6E,0x6E,0xBE,0xBE,0xBE,0xBE,0xBE,0xBE,0xBE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE
 
-
-
     // 1/4 size
     // 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE,0xFE,0xFE,0xF9,0xF9,0xF9,0xF9,0xF9,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xE4,0xF9,0xF9,0xF9,0xF9,0xF9,0xFE,0xFE,0xFE,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF
 };
 
 
-// Formula: sin(2*pi*t/T)    Amplitude = 8
+// Formula: sin(2*pi*t/T)   Amplitude = 8
 const uint8_t sine_bounce[32] = {
      0,     2,     3,     4,     6,     7,     7,
      8,     8,     8,     7,     7,     6,     4,
@@ -76,8 +85,7 @@ const uint8_t sine_bounce[32] = {
     -7,    -7,    -8,    -8,    -8,    -7,    -7,
     -6,    -4,    -3,    -2 };
 
-
-// Formula: sin(2*pi*t/T)  // Amplitude 54 ((72 + 36) / 2)
+// Formula: sin(2*pi*t/T)   Amplitude 54 ((72 + 36) / 2)
 const uint8_t oam_y_sine[160] = {
    0,   2,   4,   6,   8,  11,  13,  15,  17,  19,
   21,  23,  25,  26,  28,  30,  32,  33,  35,  37,
@@ -95,7 +103,6 @@ const uint8_t oam_y_sine[160] = {
  -50, -49, -48, -47, -46, -45, -44, -42, -41, -40,
  -38, -37, -35, -33, -32, -30, -28, -26, -25, -23,
  -21, -19, -17, -15, -13, -11,  -8,  -6,  -4,  -2 };
-
 
 
 const uint8_t spr_tile[16] = {
@@ -196,19 +203,13 @@ void fx_cylinder_setup(void) {
     start_scy = 0u;
     counter = 0u;
     bounce_scy = 0u;
-
-    // set_sprite_data(0, 1, spr_tile);
-    // set_sprite_tile(0, 0);
+    cylinder_start_bounce_scy = 0u;
 
     for (uint8_t c = 0; c < SPR_NUM; c++) {
         spr_x[c] = c * SPR_SCALE_X;
-        // set_sprite_tile(c, 0);
         set_sprite_tile(c, next_scroll_char());
     }
 }
-
-#define SCROLL_AMT 1u
-// #define SCROLL_AMT 2u
 
 void fx_cylinder_run(void) {
 
@@ -232,24 +233,9 @@ void fx_cylinder_run(void) {
         vsync();
         UPDATE_KEYS();
 
-        if (KEY_PRESSED(J_UP))
-            start_scy += SCROLL_AMT;
-        else if (KEY_PRESSED(J_DOWN))
-            start_scy -= SCROLL_AMT;
-        else if (KEY_PRESSED(J_LEFT))
-            // bounce_scy += SCROLL_AMT;
-            start_scx+= SCROLL_AMT;
-        else if (KEY_PRESSED(J_RIGHT))
-            // bounce_scy -= SCROLL_AMT;
-            start_scx-= SCROLL_AMT;
-        else if (KEY_TICKED(J_START)) {
+        if (KEY_TICKED(J_START)) {
             break;
         }
-
-        #define CYLINDER_HEIGHT      (72u)
-        #define CYLINDER_HEIGHT_HALF (72u / 2)
-        #define CYLINDER_START        ((DEVICE_SCREEN_PX_HEIGHT - CYLINDER_HEIGHT) / 2)
-        #define SPR_CYLINDER_Y_CENTER  (CYLINDER_START + CYLINDER_HEIGHT_HALF)
 
         uint8_t y_center = (SPR_CYLINDER_Y_CENTER - bounce_scy) + DEVICE_SPRITE_PX_OFFSET_Y;
         if (sys_time & 0x01u) {
@@ -279,15 +265,14 @@ void fx_cylinder_run(void) {
 
     set_interrupts(IE_REG & ~LCD_IFLAG);
     CRITICAL {
-        // remove_LCD(fx_cylinder_isr_lcd);
         remove_VBL(fx_cylinder_isr_vbl);
     }
     BGP_REG = DMG_PALETTE(DMG_BLACK, DMG_BLACK, DMG_BLACK, DMG_BLACK);
     OBP0_REG = DMG_PALETTE(DMG_BLACK, DMG_BLACK, DMG_BLACK, DMG_BLACK);
     OBP1_REG = DMG_PALETTE(DMG_BLACK, DMG_BLACK, DMG_BLACK, DMG_BLACK);
     // fade_out(FADE_DELAY_NORM, BG_PAL_TITLE);
-    // BGP_REG = 0xE4u;
 }
+
 
 static void fx_cylinder_isr_vbl(void) {
     counter++;
@@ -314,7 +299,7 @@ static void fx_cylinder_isr_lcd(void) __interrupt __naked {
     ldh a, (_LY_REG)              // Current scanline
     ld  l, a                      // Save LY
 
-    ld a, (_cylinder_start_bounce_scy)           // Add sine bounce offset (+/- origin)
+    ldh a, (_cylinder_start_bounce_scy)           // Add sine bounce offset (+/- origin)
 
         // if (LY <= _cylinder_start_bounce_scy)
         cp  a, l    
@@ -328,30 +313,43 @@ static void fx_cylinder_isr_lcd(void) __interrupt __naked {
 
 
     // Apply scroll offset for line
-    ld a, (_bounce_scy)           // Add sine bounce offset (+/- origin)
+    ldh a, (_bounce_scy)           // Add sine bounce offset (+/- origin)
     
     .inside_cyl:
-    add a, l
+    add a, l                       // A = has LY + bounce_scy
     ld  l, a
 
-    ld  h, #(_scanline_scy_offsets >> 8)  // High byte of address for SCY offsets LUT (fixed location 256 byte aligned)
+    // Load per- scanline BG Pal table
+    ld  h, #(_scanline_bg_pals >> 8)  // High byte of address for SCY offsets LUT (fixed location 256 byte aligned)
+    ld a, (hl)                    // Add LUT offset to Scroll Y based indexed based on current LYC value
+    // ld a, #0xAA
+    ldh (_BGP_REG), a             // Apply the updated scroll value
+
+    // Now look up per-scanline Y scroll delta
+    dec h                         // ld  h, #(_scanline_scy_offsets >> 8
     ldh a, (_SCY_REG)             // Get current Scroll Y
     add a, (hl)                   // Add LUT offset to Scroll Y based indexed based on current LYC value
 
+    // Map scanline 255 is special- it's tile has all pixels color 0
+    // so that sprites with priority set to hide behind the BG will show.
+    // But that means if it shows in the cylinder area it will reveal sprite
+    // bits and look glitchy. so try to avoid that.
+    //
+    // Cutting it very close on timing. Might be improved with a rework of the ISR start
+    //
+    // Avoid scrolling to scanline 255: if ((SCY + LY) == 255) SCY ++
+    ld  l, a                      // A has current scroll delta to be loaded to SCY
+    ldh a, (_LY_REG)              // Current scanline
+    add a, l                      // Add to current scroll delta
+    inc a                         // Add 1, so if it's 255 it rolls over to zero
+
+    ld  a, l                      // Restore saved scroll delta
+    jr  nz, .done_map_line_255_check
+        // Scroll past map line 255 -> line 0
+        inc a
+
+    .done_map_line_255_check:
     ldh (_SCY_REG), a             // Apply the updated scroll value
-// TODO: fixme - need to calc in SCY offset
-// Avoid special line 255 (add 1)
-// LY + scy = 255
-// cp a, #255
-// jr nz, .done_line_255_test
-
-    .done_line_255_test:
-
-    // Load BG Palette for line
-    inc h                         // Change to bg pal LUT
-    ld a, (hl)                    // Add LUT offset to Scroll Y based indexed based on current LYC value
-// ld a, #0xAA
-    ldh (_BGP_REG), a             // Apply the updated scroll value
 
     pop hl
     pop af
@@ -367,7 +365,7 @@ static void fx_cylinder_isr_lcd(void) __interrupt __naked {
         add a, l
         ld  l, a
 
-        ld a, (_bounce_scy)           // Add sine bounce offset (+/- origin)
+        ldh a, (_bounce_scy)           // Add sine bounce offset (+/- origin)
         add a, l
         ldh (_SCY_REG), a             // Apply the updated scroll value
 
