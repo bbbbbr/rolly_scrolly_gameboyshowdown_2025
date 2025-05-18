@@ -30,6 +30,8 @@ LCCFLAGS += -debug # Uncomment to enable debug output
 LCCFLAGS += -Wf-MMD -Wf-Wp-MP # Header file dependency output (-MMD) for Makefile use + per-header Phony rules (-MP)
 CFLAGS += -Wf-MMD -Wf-Wp-MP # Header file dependency output (-MMD) for Makefile use + per-header Phony rules (-MP)
 
+# Audio driver
+LCCFLAGS += -Wl-llib/hUGEDriver.lib
 
 # Set CGB Boot ROM color palette to 0x13
 # 1. Old Licensee is already 0x33 -> Use New Licensee
@@ -48,7 +50,7 @@ ifdef GBDK_DEBUG
 endif
 
 # You can set the name of the ROM file here
-PROJECTNAME = gbshowdown25
+PROJECTNAME = rollys_scrolly
 
 # EXT?=gb # Only sets extension to default (game boy .gb) if not populated
 SRCDIR      = src

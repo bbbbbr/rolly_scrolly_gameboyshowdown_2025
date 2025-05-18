@@ -12,6 +12,9 @@
 #include "showdownlogo.h"
 #include "font.h"
 
+#include "hUGEDriver.h"
+extern const hUGESong_t beatscribe_unused_song;
+
 // FIXY:
 // - BG 0 line showing in main scrolly
 // - Dark line at top of screen
@@ -43,7 +46,9 @@ SFR __at(0xFF97) cylinder_start_bounce_scy;
 // uint8_t start_scx, start_scy, counter, bounce_scy, cylinder_start_bounce_scy;
 uint8_t cur_scroll_char = 0;
 
-static bool demo_running;
+bool demo_running;
+uint8_t audio_fading_out;
+uint8_t audio_paused;
 
 uint8_t spr_x[SPR_NUM];
 
@@ -105,17 +110,19 @@ const uint8_t oam_y_sine[160] = {
  -21, -19, -17, -15, -13, -11,  -8,  -6,  -4,  -2 };
 
 
-const uint8_t spr_tile[16] = {
-    0xFFu, 0x00u,
-    0x81u, 0x00u,
-    0x81u, 0x00u,
-    0x81u, 0x00u,
 
-    0x81u, 0x00u,
-    0x81u, 0x00u,
-    0x81u, 0x00u,
-    0xFFu, 0x00u,
-};
+const uint8_t audio_fade_steps[] = {0b00000000, // Sound off
+                                    0b00010001,
+                                    0b00100010,
+                                    0b00110011,
+                                    // 0b01100110,
+                                    // 0b01110111,
+                                    // 0b11111111 // Sound on highest
+                                    };
+#define AUDIO_FADE_BITSHIFT 3u
+#define AUDIO_FADE_DONE 0u
+#define AUDIO_FADE_OUT_START ((ARRAY_LEN(audio_fade_steps) + 1) << AUDIO_FADE_BITSHIFT) // Intentionally +1 since it decrements first then uses value
+
 
 
 #define CR(c) (c - 'A')
@@ -124,13 +131,13 @@ const uint8_t spr_tile[16] = {
 
 const uint8_t scrollytext_src[] = 
 "                " \
-"HEYYY EVERYBODY..." \
-"LIL ROLLY SCROLLY HERE. " \
+"HI ALL, HERES A LIL ROLLY SCROLLY. " \
 "ONE SCREEN, JUST SOME FUN FOR THE JAM. " \
-"GOT A GLITCH... TIME TO FIX IT? " \
+"FIXED THE GLITCHES AT THE LAST MOMENT. " \
 "SIXTY SEC. MAX SO GOTTA JET. " \
 "BYEEEEE..." \
 "                ";
+
 
 uint8_t scrollytext[ARRAY_LEN(scrollytext_src)];
 
@@ -162,7 +169,10 @@ uint8_t next_scroll_char(void) {
 
     // Reached the end of the scroller text
     // Either wrap around or quit
-    if (cur_scroll_char >= ARRAY_LEN(scrollytext_src)) {
+    if (cur_scroll_char == (ARRAY_LEN(scrollytext_src) - 6) ) {
+        // Start audio fade a little before the end
+        audio_fading_out = AUDIO_FADE_OUT_START;
+    } else if (cur_scroll_char >= ARRAY_LEN(scrollytext_src)) {
         #ifdef LOOP_FOREVER
             cur_scroll_char = 0;
         #else
@@ -209,6 +219,35 @@ void fx_cylinder_setup(void) {
         spr_x[c] = c * SPR_SCALE_X;
         set_sprite_tile(c, next_scroll_char());
     }
+
+    // Enable audio output
+    NR52_REG = AUDENA_ON;
+    NR51_REG = AUDTERM_ALL_LEFT | AUDTERM_ALL_RIGHT;
+    NR50_REG = 0x77u;
+    hUGE_init(&beatscribe_unused_song);
+    audio_fading_out = AUDIO_FADE_DONE;
+    audio_paused = false;
+}
+
+
+void audio_update(void) {
+
+    if (!audio_paused)
+        hUGE_dosound();
+
+    if (audio_fading_out) {
+        audio_fading_out--;
+        // TODO: only write this once value, use a second timeout counter or other method
+        if ((audio_fading_out >> AUDIO_FADE_BITSHIFT) & 0x01)
+            NR50_REG = audio_fade_steps[audio_fading_out >> AUDIO_FADE_BITSHIFT];
+
+        // // If done fading out, stop music from playing
+        if (audio_fading_out == AUDIO_FADE_DONE) {
+            // Fixme: faint pop at the end
+            audio_paused = true;
+            NR52_REG = AUDENA_OFF;
+        }
+    }
 }
 
 void fx_cylinder_run(void) {
@@ -231,6 +270,11 @@ void fx_cylinder_run(void) {
 
     while (demo_running) {
         vsync();
+
+        // Run audio in the main loop so that it can be interrupted by ISRs
+        // and since not much else going on in here
+        audio_update();
+
         UPDATE_KEYS();
 
         if (KEY_TICKED(J_START)) {
@@ -271,6 +315,12 @@ void fx_cylinder_run(void) {
     OBP0_REG = DMG_PALETTE(DMG_BLACK, DMG_BLACK, DMG_BLACK, DMG_BLACK);
     OBP1_REG = DMG_PALETTE(DMG_BLACK, DMG_BLACK, DMG_BLACK, DMG_BLACK);
     // fade_out(FADE_DELAY_NORM, BG_PAL_TITLE);
+
+    // Turn off and reset sound
+    NR52_REG = AUDENA_OFF;
+    // NR52_REG = AUDENA_ON;
+    // NR51_REG = AUDTERM_ALL_LEFT | AUDTERM_ALL_RIGHT;
+    // NR50_REG = 0x77u;
 }
 
 
@@ -285,9 +335,13 @@ static void fx_cylinder_isr_vbl(void) {
     cylinder_start_bounce_scy = CYLINDER_START - bounce_scy;
 
     // Reset Y scroll in VBlank to current start value
-    SCY_REG = start_scy;
+    // SCY_REG = start_scy;
     SCX_REG = start_scx;
 
+    // Set scroll to show map line 0 since first LCD ISR won't
+    // fire until the end of map line 0, which would leave
+    // a possibly incorrect line showing on scanline 0
+    SCY_REG = 0;
 }
 
 static void fx_cylinder_isr_lcd(void) __interrupt __naked {
