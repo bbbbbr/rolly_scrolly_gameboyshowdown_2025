@@ -118,12 +118,12 @@ const uint8_t spr_tile[16] = {
 const uint8_t scrollytext_src[] = 
 "                " \
 "HEYYY EVERYBODY..." \
-"A LIL ROLLY SCROLLY HERE. " \
+"LIL ROLLY SCROLLY HERE. " \
 "ONE SCREEN, JUST SOME FUN FOR THE JAM. " \
-"SIXTY SEC. MAX SO GOTTA KEEP IT SHORT. " \
+"GOT A GLITCH... TIME TO FIX IT? " \
+"SIXTY SEC. MAX SO GOTTA JET. " \
 "BYEEEEE..." \
 "                ";
-// "GOT A GLITCH, TIME TO FIX IT? " \
 
 uint8_t scrollytext[ARRAY_LEN(scrollytext_src)];
 
@@ -141,6 +141,7 @@ void load_scroll_text(void) {
         else if (in_chr == ' ') out_chr = ('Z' - 'A') + 4u;
         else if (in_chr == ':') out_chr = ('Z' - 'A') + 5u;
         else if (in_chr == ')') out_chr = ('Z' - 'A') + 6u;
+        else if (in_chr == '?') out_chr = ('Z' - 'A') + 7u;
         else out_chr = ('Z' - 'A') + 4u;
 
         scrollytext[c] = out_chr;
