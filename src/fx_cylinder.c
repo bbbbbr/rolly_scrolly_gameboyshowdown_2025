@@ -21,9 +21,10 @@
 static void fx_cylinder_isr_vbl(void);
 static void fx_cylinder_isr_lcd(void) __interrupt __naked;
 
-// uint8_t __at(0xA080) pre_scanline_scy_offsets[128];
-uint8_t __at(0xA100) scanline_scy_offsets[256];
-uint8_t __at(0xA200) scanline_bg_pals[256];
+// uint8_t __at(0xA100) scanline_scy_offsets[256];
+// uint8_t __at(0xA200) scanline_bg_pals[256];
+uint8_t __at(0xC800) scanline_scy_offsets[256];
+uint8_t __at(0xC900) scanline_bg_pals[256];
 
 uint8_t start_scx, start_scy, counter, bounce_scy, cylinder_start_bounce_scy;
 
@@ -116,20 +117,13 @@ const uint8_t spr_tile[16] = {
 
 const uint8_t scrollytext_src[] = 
 "                " \
-"WELL HELLO THERE..." \
+"HEYYY EVERYBODY..." \
 "A LIL ROLLY SCROLLY HERE. " \
-"NOT TOO FANCY, JUST SOME FUN FOR THE JAM. " \
-"ONLY SIXTY SEC. SO BETTER KEEP IT SHORT. " \
+"ONE SCREEN, JUST SOME FUN FOR THE JAM. " \
+"SIXTY SEC. MAX SO GOTTA KEEP IT SHORT. " \
 "BYEEEEE..." \
 "                ";
-
-// "                " \
-// "WELL HELLO THERE..." \
-// "ONLY SIXTY SEC. SO BETTER KEEP IT SHORT. " \
-// "A LIL ROLLY SCROLLY HERE. " \
-// "NOT TOO FANCY, JUST SOME FUN FOR THE JAM. " \
-// "BYEEEEE..." \
-// "                ";
+// "GOT A GLITCH, TIME TO FIX IT? " \
 
 uint8_t scrollytext[ARRAY_LEN(scrollytext_src)];
 
