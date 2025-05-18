@@ -304,7 +304,7 @@ static void fx_cylinder_isr_lcd(void) __interrupt __naked {
         // if (LY <= _cylinder_start_bounce_scy)
         cp  a, l    
         jr  z,  .bottom_start_cyl
-        jr  nc, .outside_cyl  // Scrolling will be broken after this due SCY reset (by scrolling to map 255)
+        jr  nc, .outside_cyl        // Try to restore correct scrolling due SCY reset in non-cylinder areas
 
         // if (LY > (108 + bounce_scy)) ...
         add a, #72  
@@ -330,25 +330,24 @@ static void fx_cylinder_isr_lcd(void) __interrupt __naked {
     ldh a, (_SCY_REG)             // Get current Scroll Y
     add a, (hl)                   // Add LUT offset to Scroll Y based indexed based on current LYC value
 
-    // Map scanline 255 is special- it's tile has all pixels color 0
+    // Map scanline 0 is special- it's tile has all pixels color 0
     // so that sprites with priority set to hide behind the BG will show.
     // But that means if it shows in the cylinder area it will reveal sprite
     // bits and look glitchy. so try to avoid that.
     //
     // Cutting it very close on timing. Might be improved with a rework of the ISR start
     //
-    // Avoid scrolling to scanline 255: if ((SCY + LY) == 255) SCY ++
+    // Avoid scrolling to scanline 0: if ((SCY + LY) == 0) SCY ++
     ld  l, a                      // A has current scroll delta to be loaded to SCY
     ldh a, (_LY_REG)              // Current scanline
     add a, l                      // Add to current scroll delta
-    inc a                         // Add 1, so if it's 255 it rolls over to zero
 
     ld  a, l                      // Restore saved scroll delta
-    jr  nz, .done_map_line_255_check
-        // Scroll past map line 255 -> line 0
+    jr  nz, .done_map_line_0_check
+        // Scroll past map line 0 -> line 1
         inc a
 
-    .done_map_line_255_check:
+    .done_map_line_0_check:
     ldh (_SCY_REG), a             // Apply the updated scroll value
 
     pop hl
@@ -377,15 +376,13 @@ static void fx_cylinder_isr_lcd(void) __interrupt __naked {
         pop af
         reti
 
-    // Scroll to line 255 which has tile pixel colors all 0
+    // Scroll to line 0 which has tile pixel colors all 0
     // which causes the NO-BG-PRIORITY sprites to be VISIBLE
     .outside_cyl:
 
-        // Load last line in map
-        // ld  l, #255
+        // Calculate scroll delta for Map line 0
         ldh a, (_LY_REG)             // Get current Scroll Y
-        sub a, #255
-        cpl
+        cpl                          // LY_REG *= -1
         ldh (_SCY_REG), a            // Apply the updated scroll value
 
         // Load All black BG Palette
