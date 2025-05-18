@@ -41,6 +41,12 @@ CFLAGS += -Wf-MMD -Wf-Wp-MP # Header file dependency output (-MMD) for Makefile 
 LCCFLAGS += -Wm-yn"SHOWDOWNDEMO>>>"
 LCCFLAGS += -Wm-yk01
 
+
+# GBDK_DEBUG = ON
+ifdef GBDK_DEBUG
+	LCCFLAGS += -debug -v
+endif
+
 # You can set the name of the ROM file here
 PROJECTNAME = gbshowdown25
 
