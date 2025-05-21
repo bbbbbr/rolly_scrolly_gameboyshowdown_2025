@@ -15,10 +15,6 @@
 #include "hUGEDriver.h"
 extern const hUGESong_t beatscribe_unused_song;
 
-// FIXY:
-// - BG 0 line showing in main scrolly
-// - Dark line at top of screen
-
 // #define LOOP_FOREVER
 
 #define CYLINDER_HEIGHT      (72u)
@@ -33,8 +29,6 @@ extern const hUGESong_t beatscribe_unused_song;
 static void fx_cylinder_isr_vbl(void);
 static void fx_cylinder_isr_lcd(void) __interrupt __naked;
 
-// uint8_t __at(0xA100) scanline_scy_offsets[256];
-// uint8_t __at(0xA200) scanline_bg_pals[256];
 uint8_t __at(0xC800) scanline_scy_offsets[256];
 uint8_t __at(0xC900) scanline_bg_pals[256];
 
@@ -201,10 +195,7 @@ void fx_cylinder_setup(void) {
     SWITCH_RAM(0);
     ENABLE_RAM;
     
-    // Fill palette areas before and after table for bounce overflow
-    // memset(scanline_scy_offsets,   0xFF, ARRAY_LEN(scanline_scy_offsets));
-    // memset(scanline_bg_pals,       0xFF, ARRAY_LEN(scanline_bg_pals));
-
+    // Set up 256 byte aligned LUTs in WRAM
     memcpy(scanline_scy_offsets, scy_offset_table, ARRAY_LEN(scy_offset_table));
     memcpy(scanline_bg_pals,     palette_ly_table, ARRAY_LEN(palette_ly_table));
 
@@ -215,6 +206,7 @@ void fx_cylinder_setup(void) {
     bounce_scy = 0u;
     cylinder_start_bounce_scy = 0u;
 
+    // Load the initial sprites
     for (uint8_t c = 0; c < SPR_NUM; c++) {
         spr_x[c] = c * SPR_SCALE_X;
         set_sprite_tile(c, next_scroll_char());
@@ -249,6 +241,7 @@ void audio_update(void) {
         }
     }
 }
+
 
 void fx_cylinder_run(void) {
 
@@ -301,10 +294,6 @@ void fx_cylinder_run(void) {
                 }
             }
         }
-
-        // TODO: DEBUG
-        // move_sprite(SPR_NUM - 1, 80, cylinder_start_bounce_scy + DEVICE_SPRITE_PX_OFFSET_Y);
-        // set_sprite_prop(SPR_NUM - 1, 0);
     }
 
     set_interrupts(IE_REG & ~LCD_IFLAG);
@@ -318,9 +307,6 @@ void fx_cylinder_run(void) {
 
     // Turn off and reset sound
     NR52_REG = AUDENA_OFF;
-    // NR52_REG = AUDENA_ON;
-    // NR51_REG = AUDTERM_ALL_LEFT | AUDTERM_ALL_RIGHT;
-    // NR50_REG = 0x77u;
 }
 
 
@@ -451,63 +437,3 @@ static void fx_cylinder_isr_lcd(void) __interrupt __naked {
 
 ISR_VECTOR(VECTOR_STAT, fx_cylinder_isr_lcd)
 
-
-// OK bounce version
-/*static void fx_cylinder_isr_lcd(void) __interrupt __naked {
-    __asm \
-
-    push af
-    push hl
-
-    ldh a, (_LY_REG)              // Current scanline
-
-    // Apply scroll offset for line
-    ld  l, a                      // A = current scanline
-    ld a, (_bounce_scy)           // Add sine bounce offset (+/- origin)
-    add a, l
-    ld  l, a
-
-    ld  h, #(_scanline_scy_offsets >> 8)  // High byte of address for SCY offsets LUT (fixed location 256 byte aligned)
-    ldh a, (_SCY_REG)             // Get current Scroll Y
-    add a, (hl)                   // Add LUT offset to Scroll Y based indexed based on current LYC value
-    ldh (_SCY_REG), a             // Apply the updated scroll value
-
-    // Load BG Palette for line
-    inc h                         // Change to bg pal LUT
-    ld a, (hl)                    // Add LUT offset to Scroll Y based indexed based on current LYC value
-    ldh (_BGP_REG), a             // Apply the updated scroll value
-
-    pop hl
-    pop af    
-    reti
-    __endasm;    
-}*/
-
-
-// OK PRE-padding
-// static void fx_cylinder_isr_lcd(void) __interrupt __naked {
-//     __asm \
-
-//     push af
-//     push hl
-
-//     ldh a, (_LY_REG)              // Current scanline
-
-//     // Apply scroll offset for line
-//     ld  l, a                      // A = current scanline
-//     ld  h, #(_scanline_scy_offsets >> 8)  // High byte of address for SCY offsets LUT (fixed location 256 byte aligned)
-//     ldh a, (_SCY_REG)             // Get current Scroll Y
-//     add a, (hl)                   // Add LUT offset to Scroll Y based indexed based on current LYC value
-//     ldh (_SCY_REG), a             // Apply the updated scroll value
-
-//     // Load BG Palette for line
-//     inc h                         // Change to bg pal LUT
-//     ld a, (hl)                    // Add LUT offset to Scroll Y based indexed based on current LYC value
-//     ldh (_BGP_REG), a             // Apply the updated scroll value
-
-//     pop hl
-//     pop af
-//     // ret
-//     reti;
-//     __endasm;    
-// }
