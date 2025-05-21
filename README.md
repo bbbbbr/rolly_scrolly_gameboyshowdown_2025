@@ -1,6 +1,6 @@
 ## Rolly Scrolly Demo
 
-Hastily made little GB Demo for Game Boy Showdown 2025 with a Cylinder like effect and some wraparound sprite text.
+Hastily made little GB (And MegaDuck) Demo for Game Boy Showdown 2025 with a Cylinder like effect and some wraparound sprite text.
 
 ROM downloadable on itch.io:
 https://bbbbbr.itch.io/rolly-scrolly-demo
