@@ -10,7 +10,7 @@ PNG2ASSET = $(GBDK_HOME)bin/png2asset
 # Set platforms to build here, spaced separated. (These are in the separate Makefile.targets)
 # They can also be built/cleaned individually: "make gg" and "make gg-clean"
 # Possible are: gb gbc pocket megaduck sms gg
-TARGETS= gb # megaduck # gb pocket megaduck sms gg nes
+TARGETS= gb megaduck # gb pocket megaduck sms gg nes
 
 # Configure platform specific LCC flags here:
 LCCFLAGS_gb      = # -Wl-yt0x1B # Set an MBC for banking (1B-ROM+MBC5+RAM+BATT)
@@ -24,14 +24,14 @@ LCCFLAGS_nes     =
 LCCFLAGS += $(LCCFLAGS_$(EXT)) # This adds the current platform specific LCC Flags
 
 # LCCFLAGS += -Wl-j -autobank -Wb-ext=.rel -Wb-v # MBC + Autobanking related flags
-LCCFLAGS += -debug # Uncomment to enable debug output
+# LCCFLAGS += -debug # Uncomment to enable debug output
 # LCCFLAGS += -v     # Uncomment for lcc verbose output
 # CFLAGS += -v       # Uncomment for compile stage verbose output
 LCCFLAGS += -Wf-MMD -Wf-Wp-MP # Header file dependency output (-MMD) for Makefile use + per-header Phony rules (-MP)
 CFLAGS += -Wf-MMD -Wf-Wp-MP # Header file dependency output (-MMD) for Makefile use + per-header Phony rules (-MP)
 
 # Audio driver
-LCCFLAGS += -Wl-llib/hUGEDriver.lib
+LCCFLAGS += -Wl-llib/$(PLAT)/hUGEDriver.lib
 
 # Set CGB Boot ROM color palette to 0x13
 # 1. Old Licensee is already 0x33 -> Use New Licensee

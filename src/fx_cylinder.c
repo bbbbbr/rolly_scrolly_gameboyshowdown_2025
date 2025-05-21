@@ -9,6 +9,7 @@
 #include "input.h"
 #include "fade.h"
 
+#include "megaduck.h"
 #include "showdownlogo.h"
 #include "font.h"
 
@@ -38,7 +39,7 @@ SFR __at(0xFF95) counter;
 SFR __at(0xFF96) bounce_scy;
 SFR __at(0xFF97) cylinder_start_bounce_scy;
 // uint8_t start_scx, start_scy, counter, bounce_scy, cylinder_start_bounce_scy;
-uint8_t cur_scroll_char = 0;
+uint16_t cur_scroll_char = 0;
 
 bool demo_running;
 uint8_t audio_fading_out;
@@ -124,13 +125,25 @@ const uint8_t audio_fade_steps[] = {0b00000000, // Sound off
 #define PR  26u
 
 const uint8_t scrollytext_src[] = 
-"                " \
-"HI ALL, HERES A LIL ROLLY SCROLLY. " \
-"ONE SCREEN, JUST SOME FUN FOR THE JAM. " \
-"FIXED THE GLITCHES AT THE LAST MOMENT. " \
-"SIXTY SEC. MAX SO GOTTA JET. " \
-"BYEEEEE..." \
-"                ";
+#if defined(MEGADUCK)
+    "                " \
+    "THIS LIL ROLLY SCROLLY WAS ORIGINALLY MADE " \
+    "FOR THE GAME BOY SHOWDOWN JAM 2025. " \
+    "BUT WHY NOT MAKE A VERSION FOR THE MEGA DUCK TOO? " \
+    "THAT WAY OUR FAVORITE CLONE CONSOLE CAN HAVE IT'S FIRST DEMO, "
+    "EVEN IF JUST A REALLY SHORT ONE MADE IN A DAY OR TWO. " \
+    "MUSIC BY BEATSCRIBE, CODE BY BBBBBR. "\
+    "THAT'S ALL! BYEEEEE....." \
+    "                ";
+#else
+    "                " \
+    "HI ALL, HERES A LIL ROLLY SCROLLY. " \
+    "ONE SCREEN, JUST SOME FUN FOR THE JAM. " \
+    "FIXED THE GLITCHES AT THE LAST MOMENT. " \
+    "SIXTY SEC. MAX SO GOTTA JET. " \
+    "BYEEEEE..." \
+    "                ";
+#endif
 
 
 uint8_t scrollytext[ARRAY_LEN(scrollytext_src)];
@@ -138,10 +151,13 @@ uint8_t scrollytext[ARRAY_LEN(scrollytext_src)];
 void load_scroll_text(void) {
     uint8_t in_chr, out_chr;
 
-    for (uint8_t c = 0; c < ARRAY_LEN(scrollytext_src); c++) {
+    for (uint16_t c = 0; c < ARRAY_LEN(scrollytext_src); c++) {
         in_chr = scrollytext_src[c];    
-        if ((in_chr >= 'A') && (in_chr >= 'A')) {
+        if ((in_chr >= 'A') && (in_chr <= 'Z')) {
             out_chr = in_chr - 'A';
+        }
+        else if ((in_chr >= '0') && (in_chr <= '9')) {
+            out_chr = (in_chr - '0') + ('Z' - 'A') + 9u;;
         }
         else if (in_chr == '.') out_chr = ('Z' - 'A') + 1u;
         else if (in_chr == '!') out_chr = ('Z' - 'A') + 2u;
@@ -150,6 +166,7 @@ void load_scroll_text(void) {
         else if (in_chr == ':') out_chr = ('Z' - 'A') + 5u;
         else if (in_chr == ')') out_chr = ('Z' - 'A') + 6u;
         else if (in_chr == '?') out_chr = ('Z' - 'A') + 7u;
+        else if (in_chr == '\'') out_chr = ('Z' - 'A') + 8u;
         else out_chr = ('Z' - 'A') + 4u;
 
         scrollytext[c] = out_chr;
@@ -183,18 +200,23 @@ void fx_cylinder_setup(void) {
     // Clear screen with known blank tile
     fill_bkg_rect(0,0, DEVICE_SCREEN_BUFFER_WIDTH, DEVICE_SCREEN_BUFFER_HEIGHT, 0); // 2); 
     // Load map and tiles
-    set_bkg_data(0, showdownlogo_TILE_COUNT, showdownlogo_tiles);
-    set_bkg_tiles(0,0,
-                  (showdownlogo_WIDTH / showdownlogo_TILE_W),
-                  (showdownlogo_HEIGHT / showdownlogo_TILE_H),
-                  showdownlogo_map);
+    #if defined(MEGADUCK)
+        set_bkg_data(0, megaduck_TILE_COUNT, megaduck_tiles);
+        set_bkg_tiles(0,0,
+                      (megaduck_WIDTH / megaduck_TILE_W),
+                      (megaduck_HEIGHT / megaduck_TILE_H),
+                      megaduck_map);
+    #else
+        set_bkg_data(0, showdownlogo_TILE_COUNT, showdownlogo_tiles);
+        set_bkg_tiles(0,0,
+                      (showdownlogo_WIDTH / showdownlogo_TILE_W),
+                      (showdownlogo_HEIGHT / showdownlogo_TILE_H),
+                      showdownlogo_map);
+    #endif
 
     set_sprite_data(0, font_TILE_COUNT, font_tiles);
     load_scroll_text();
 
-    SWITCH_RAM(0);
-    ENABLE_RAM;
-    
     // Set up 256 byte aligned LUTs in WRAM
     memcpy(scanline_scy_offsets, scy_offset_table, ARRAY_LEN(scy_offset_table));
     memcpy(scanline_bg_pals,     palette_ly_table, ARRAY_LEN(palette_ly_table));
