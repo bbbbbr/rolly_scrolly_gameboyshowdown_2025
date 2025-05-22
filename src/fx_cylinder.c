@@ -137,7 +137,7 @@ const uint8_t scrollytext_src[] =
     "                ";
 #else
     "                " \
-    "HI ALL, HERES A LIL ROLLY SCROLLY. " \
+    "HI ALL, HERE'S A LIL ROLLY SCROLLY. " \
     "ONE SCREEN, JUST SOME FUN FOR THE JAM. " \
     "FIXED THE GLITCHES AT THE LAST MOMENT. " \
     "SIXTY SEC. MAX SO GOTTA JET. " \
@@ -192,6 +192,31 @@ uint8_t next_scroll_char(void) {
     }
 
     return next_char;
+}
+
+
+void text_sprites_scroll(void) {
+
+    uint8_t y_center = (SPR_CYLINDER_Y_CENTER - bounce_scy) + DEVICE_SPRITE_PX_OFFSET_Y;
+    if (sys_time & 0x01u) {
+        for (uint8_t c = 0; c < SPR_NUM; c++) {
+            // Update X
+            uint8_t temp_x = spr_x[c] - 1;
+            if (temp_x > DEVICE_SCREEN_PX_WIDTH) {
+                temp_x = DEVICE_SCREEN_PX_WIDTH;
+                set_sprite_tile(c, next_scroll_char());
+            }
+            // Move sprite and save X
+            move_sprite(c, temp_x, oam_y_sine[temp_x]  + y_center);
+            spr_x[c] = temp_x;
+            if ((temp_x < DEVICE_SCREEN_PX_WIDTH * 0.25) || 
+                (temp_x > DEVICE_SCREEN_PX_WIDTH * 0.75)) {
+                set_sprite_prop(c, S_PRIORITY | S_PALETTE);
+            } else {
+                set_sprite_prop(c, 0);
+            }
+        }
+    }    
 }
 
 
@@ -296,26 +321,7 @@ void fx_cylinder_run(void) {
         //     break;
         // }
 
-        uint8_t y_center = (SPR_CYLINDER_Y_CENTER - bounce_scy) + DEVICE_SPRITE_PX_OFFSET_Y;
-        if (sys_time & 0x01u) {
-            for (uint8_t c = 0; c < SPR_NUM; c++) {
-                // Update X
-                uint8_t temp_x = spr_x[c] - 1;
-                if (temp_x > DEVICE_SCREEN_PX_WIDTH) {
-                    temp_x = DEVICE_SCREEN_PX_WIDTH;
-                    set_sprite_tile(c, next_scroll_char());
-                }
-                // Move sprite and save X
-                move_sprite(c, temp_x, oam_y_sine[temp_x]  + y_center);
-                spr_x[c] = temp_x;
-                if ((temp_x < DEVICE_SCREEN_PX_WIDTH * 0.25) || 
-                    (temp_x > DEVICE_SCREEN_PX_WIDTH * 0.75)) {
-                    set_sprite_prop(c, S_PRIORITY | S_PALETTE);
-                } else {
-                    set_sprite_prop(c, 0);
-                }
-            }
-        }
+        text_sprites_scroll();
     }
 
     set_interrupts(IE_REG & ~LCD_IFLAG);
@@ -351,6 +357,7 @@ static void fx_cylinder_isr_vbl(void) {
     // a possibly incorrect line showing on scanline 0
     SCY_REG = 0;
 }
+
 
 static void fx_cylinder_isr_lcd(void) __interrupt __naked {
     __asm \
